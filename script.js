@@ -363,54 +363,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // --- INITIALIZATION: Radically simplified and explicit event listeners ---
+    // --- INITIALIZATION ---
     function addEventListeners() {
-        // --- Buttons ---
         dom.resetBtn.addEventListener('click', resetToDefaults);
         dom.resetSlidersBtn.addEventListener('click', resetSlidersToRef);
         dom.setReferenceBtn.addEventListener('click', handleSetReference);
-
-        // --- Toggles and Selects ---
-        const toggles = [dom.kuehlerAktiv, dom.feuchteSollTyp, dom.fanCostActive];
-        toggles.forEach(toggle => toggle.addEventListener('change', () => { handleKuehlerToggle(); calculateAll(); }));
-        dom.kuehlmodusInputs.forEach(radio => radio.addEventListener('change', () => { handleKuehlerToggle(); calculateAll(); }));
         
-        // --- Simple Inputs ---
-        const simpleInputs = [
-            dom.tempAussen, dom.rhAussen, dom.druck, dom.preisWaerme, dom.preisStrom,
-            dom.preisKaelte, dom.xZuluft, dom.tempHeizVorlauf, dom.tempHeizRuecklauf, 
-            dom.tempKuehlVorlauf, dom.tempKuehlRuecklauf, dom.sfp, dom.stundenHeizen, dom.stundenKuehlen
-        ];
-        simpleInputs.forEach(input => {
-            input.addEventListener('change', (e) => enforceLimits(e.target));
-            input.addEventListener('input', calculateAll);
-        });
-
-        // --- Linked Inputs (Hours/Days) ---
-        dom.betriebsstundenGesamt.addEventListener('input', (e) => { enforceLimits(e.target); updateBetriebszeit(e.target.id); calculateAll(); });
-        dom.betriebstageGesamt.addEventListener('input', (e) => { enforceLimits(e.target); updateBetriebszeit(e.target.id); calculateAll(); });
-
-        // --- Synced Inputs (Number boxes) ---
-        const syncedNumberInputs = [dom.volumenstrom, dom.tempZuluft, dom.rhZuluft];
-        syncedNumberInputs.forEach(input => {
-            input.addEventListener('input', () => {
-                enforceLimits(input);
-                syncAllSlidersToInputs();
-                calculateAll();
-            });
-        });
-        
-        // --- Synced Inputs (Sliders) ---
-        const sliders = [dom.volumenstromSlider, dom.tempZuluftSlider, dom.rhZuluftSlider];
-        sliders.forEach(slider => {
-            slider.addEventListener('input', () => {
-                const inputId = slider.id.replace('Slider', '');
-                const isFloat = inputId !== 'volumenstrom';
-                const value = isFloat ? parseFloat(slider.value).toFixed(1) : slider.value;
-                dom[inputId].value = value;
-                dom[inputId+'Label'].textContent = value;
-                calculateAll();
-            });
+        allInteractiveElements.forEach(el => {
+            const eventType = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio') ? 'change' : 'input';
+            if (!['resetBtn', 'resetSlidersBtn', 'setReferenceBtn'].includes(el.id)) {
+                 el.addEventListener(eventType, (e) => {
+                    if (e.target.type === 'number') enforceLimits(e.target);
+                    if (e.target.id.includes('Slider')) {
+                        const inputId = e.target.id.replace('Slider', '');
+                        const isFloat = inputId !== 'volumenstrom';
+                        const value = isFloat ? parseFloat(e.target.value).toFixed(1) : e.target.value;
+                        dom[inputId].value = value;
+                        dom[inputId+'Label'].textContent = value;
+                    } else if (dom[e.target.id + 'Slider']) {
+                        syncAllSlidersToInputs();
+                    }
+                    if (e.target.id === 'betriebsstundenGesamt' || e.target.id === 'betriebstageGesamt') {
+                        updateBetriebszeit(e.target.id);
+                    }
+                    if (['kuehlerAktiv', 'kuehlmodus', 'feuchteSollTyp'].includes(e.target.id) || e.target.name === 'kuehlmodus') {
+                        handleKuehlerToggle();
+                    }
+                    calculateAll();
+                });
+            }
         });
     }
 
