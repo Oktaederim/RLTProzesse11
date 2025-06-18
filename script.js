@@ -199,9 +199,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateComponentNode(dom.compNE, operations.ne.p, -1, operations.ne.wv);
 
         const activeSteps = Object.values(operations).filter(op => op.p > 0);
+        let overviewClass = 'process-success';
         if (activeSteps.length > 0) {
+            overviewClass = currentPowers.kaelte > 0 ? 'process-info' : 'process-heating';
             const activeNames = Object.entries(operations).filter(([,op]) => op.p > 0).map(([key]) => key.toUpperCase());
-            const overviewClass = currentPowers.kaelte > 0 ? 'process-info' : 'process-heating';
             dom.processOverviewContainer.innerHTML = `<div class="process-overview ${overviewClass}">Prozesskette: ${activeNames.join(' → ')}</div>`;
         } else {
             dom.processOverviewContainer.innerHTML = `<div class="process-overview process-success">Idealzustand</div>`;
@@ -320,7 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isActive = dom.kuehlerAktiv.checked;
         dom.kuehlmodusWrapper.classList.toggle('disabled', !isActive);
         dom.kuehlmodusInputs.forEach(radio => radio.disabled = !isActive);
-        const isDehumidify = document.querySelector('input[name="kuehlmodus"]:checked').value === 'dehumidify';
+        const kuehlmodus = document.querySelector('input[name="kuehlmodus"]:checked');
+        const isDehumidify = kuehlmodus ? kuehlmodus.value === 'dehumidify' : false;
         dom.sollFeuchteWrapper.style.display = isActive && isDehumidify ? 'block' : 'none';
     }
     
@@ -367,39 +369,47 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- INITIALIZATION: Radically simplified and explicit event listeners ---
     function addEventListeners() {
+        // Buttons
         dom.resetBtn.addEventListener('click', resetToDefaults);
         dom.resetSlidersBtn.addEventListener('click', resetSlidersToRef);
         dom.setReferenceBtn.addEventListener('click', handleSetReference);
 
+        // All other inputs trigger the master update function
         const allInputs = document.querySelectorAll('input, select');
         allInputs.forEach(el => {
-            const eventType = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio') ? 'change' : 'input';
-            if (!el.id.includes('reset') && !el.id.includes('setReference')) {
-                 el.addEventListener(eventType, (e) => {
-                    if (e.target.type === 'number') {
-                        enforceLimits(e.target);
-                    }
-                    if (e.target.type === 'range') {
-                        const inputId = e.target.id.replace('Slider', '');
-                        const isFloat = inputId !== 'volumenstrom';
-                        const value = isFloat ? parseFloat(e.target.value).toFixed(1) : e.target.value;
-                        dom[inputId].value = value;
-                        dom[inputId+'Label'].textContent = value;
-                    } else if (dom[e.target.id + 'Slider']) {
-                        syncAllSlidersToInputs();
-                    }
-                    if (e.target.id === 'betriebsstundenGesamt' || e.target.id === 'betriebstageGesamt') {
-                        updateBetriebszeit(e.target.id);
-                    }
-                    if (['kuehlerAktiv', 'feuchteSollTyp'].includes(e.target.id) || e.target.name === 'kuehlmodus') {
-                        handleKuehlerToggle();
-                    }
-                    calculateAll();
-                });
+            if (!['resetBtn', 'resetSlidersBtn', 'setReferenceBtn'].includes(el.id)) {
+                const eventType = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio') ? 'change' : 'input';
+                el.addEventListener(eventType, masterUpdate);
             }
         });
     }
 
+    function masterUpdate(event) {
+        const el = event.target;
+        
+        enforceLimits(el);
+
+        if (el.type === 'range') {
+            const inputId = el.id.replace('Slider', '');
+            const isFloat = inputId !== 'volumenstrom';
+            const value = isFloat ? parseFloat(el.value).toFixed(1) : el.value;
+            dom[inputId].value = value;
+            dom[inputId+'Label'].textContent = value;
+        } else if (dom[el.id + 'Slider']) {
+            syncAllSlidersToInputs();
+        }
+        
+        if (el.id === 'betriebsstundenGesamt' || el.id === 'betriebstageGesamt') {
+            updateBetriebszeit(el.id);
+        }
+        
+        if (el.id === 'kuehlerAktiv' || el.name === 'kuehlmodus' || el.id === 'feuchteSollTyp') {
+            handleKuehlerToggle();
+        }
+
+        calculateAll();
+    }
+    
     addEventListeners();
     handleKuehlerToggle();
     syncAllSlidersToInputs();
