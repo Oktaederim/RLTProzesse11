@@ -218,14 +218,16 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTotalCost = kostenHeizung + kostenKuehlung + kostenVentilator;
         
         dom.kostenHeizung.textContent = `${kostenHeizung.toFixed(2)} €/h`;
+        dom.kostenHeizung.parentElement.title = `${currentPowers.waerme.toFixed(2)} kW × ${inputs.preisWaerme.toFixed(2)} €/kWh`;
         dom.kostenKuehlung.textContent = `${kostenKuehlung.toFixed(2)} €/h`;
+        dom.kostenKuehlung.parentElement.title = `${currentPowers.kaelte.toFixed(2)} kW × ${inputs.preisKaelte.toFixed(2)} €/kWh`;
         dom.kostenVentilator.textContent = `${kostenVentilator.toFixed(2)} €/h`;
+        dom.kostenVentilator.parentElement.title = `${leistungVentilator.toFixed(2)} kW × ${inputs.preisStrom.toFixed(2)} €/kWh`;
         dom.kostenGesamt.textContent = `${currentTotalCost.toFixed(2)} €/h`;
         
         const jahresVerbrauchWaerme = currentPowers.waerme * inputs.stundenHeizen;
         const jahresVerbrauchKaelte = currentPowers.kaelte * inputs.stundenKuehlen;
         const jahresVerbrauchVentilator = inputs.fanCostActive ? leistungVentilator * inputs.betriebsstundenGesamt : 0;
-        
         dom.jahresverbrauchWaerme.textContent = `${jahresVerbrauchWaerme.toFixed(0)} kWh/a`;
         dom.jahresverbrauchKaelte.textContent = `${jahresVerbrauchKaelte.toFixed(0)} kWh/a`;
         dom.jahresverbrauchVentilator.textContent = `${jahresVerbrauchVentilator.toFixed(0)} kWh/a`;
@@ -234,8 +236,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const jahreskostenKaelte = jahresVerbrauchKaelte * inputs.preisKaelte;
         const jahreskostenVentilator = jahresVerbrauchVentilator * inputs.preisStrom;
         dom.jahreskostenWaerme.textContent = `${jahreskostenWaerme.toFixed(0)} €/a`;
+        dom.jahreskostenWaerme.parentElement.title = `${jahresVerbrauchWaerme.toFixed(0)} kWh/a × ${inputs.preisWaerme.toFixed(2)} €/kWh`;
         dom.jahreskostenKaelte.textContent = `${jahreskostenKaelte.toFixed(0)} €/a`;
+        dom.jahreskostenKaelte.parentElement.title = `${jahresVerbrauchKaelte.toFixed(0)} kWh/a × ${inputs.preisKaelte.toFixed(2)} €/kWh`;
         dom.jahreskostenVentilator.textContent = `${jahreskostenVentilator.toFixed(0)} €/a`;
+        dom.jahreskostenVentilator.parentElement.title = `${jahresVerbrauchVentilator.toFixed(0)} kWh/a × ${inputs.preisStrom.toFixed(2)} €/kWh`;
         dom.jahreskostenGesamt.textContent = `${(jahreskostenWaerme + jahreskostenKaelte + jahreskostenVentilator).toFixed(0)} €/a`;
         
         dom.fanCostDisplays.forEach(d => d.classList.toggle('hidden', !inputs.fanCostActive));
@@ -318,6 +323,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function syncAllSlidersToInputs(){
+        const tempVal = parseFloat(dom.tempZuluft.value);
+        if(!isNaN(tempVal)) {
+            dom.tempZuluftSlider.min = (tempVal - 6).toFixed(1);
+            dom.tempZuluftSlider.max = (tempVal + 6).toFixed(1);
+        }
+        const volVal = parseFloat(dom.volumenstrom.value);
+        if(!isNaN(volVal)) {
+            dom.volumenstromSlider.min = Math.round(volVal * 0.5 / 100) * 100;
+            dom.volumenstromSlider.max = Math.round(volVal * 1.5 / 100) * 100;
+        }
         syncSliderToInput(dom.volumenstrom, dom.volumenstromSlider, dom.volumenstromLabel);
         syncSliderToInput(dom.tempZuluft, dom.tempZuluftSlider, dom.tempZuluftLabel, true);
         syncSliderToInput(dom.rhZuluft, dom.rhZuluftSlider, dom.rhZuluftLabel, true);
@@ -325,15 +340,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncSliderToInput(input, slider, label, isFloat = false) {
         const newValue = parseFloat(input.value);
         if(isNaN(newValue)) return;
-        
-        if (input.id === 'volumenstrom') {
-            slider.min = Math.round(newValue * 0.5 / 100) * 100;
-            slider.max = Math.round(newValue * 1.5 / 100) * 100;
-        }
-        if (input.id === 'tempZuluft') {
-            slider.min = (newValue - 6).toFixed(1);
-            slider.max = (newValue + 6).toFixed(1);
-        }
         slider.value = newValue;
         label.textContent = isFloat ? newValue.toFixed(1) : newValue;
     }
@@ -357,15 +363,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    // --- INITIALIZATION: Radically simplified and explicit event listeners ---
+    
+    // --- INITIALIZATION ---
     function addEventListeners() {
-        // Buttons
-        dom.resetBtn.addEventListener('click', resetToDefaults);
-        dom.resetSlidersBtn.addEventListener('click', resetSlidersToRef);
-        dom.setReferenceBtn.addEventListener('click', handleSetReference);
-
-        // Simple Inputs
+        // Simple inputs
         const simpleInputs = [
             dom.tempAussen, dom.rhAussen, dom.druck, dom.preisWaerme, dom.preisStrom,
             dom.preisKaelte, dom.xZuluft, dom.tempHeizVorlauf, dom.tempHeizRuecklauf, 
@@ -404,6 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const toggles = [dom.kuehlerAktiv, dom.feuchteSollTyp, dom.fanCostActive];
         toggles.forEach(toggle => toggle.addEventListener('change', () => { handleKuehlerToggle(); calculateAll(); }));
         dom.kuehlmodusInputs.forEach(radio => radio.addEventListener('change', () => { handleKuehlerToggle(); calculateAll(); }));
+        
+        // Buttons
+        dom.resetBtn.addEventListener('click', resetToDefaults);
+        dom.resetSlidersBtn.addEventListener('click', resetSlidersToRef);
+        dom.setReferenceBtn.addEventListener('click', handleSetReference);
     }
 
     addEventListeners();
